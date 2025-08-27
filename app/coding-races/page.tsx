@@ -1,3 +1,3 @@
 export default function CodingRaces() {
-  return <p>Coding Races — WIP.</p>;
+  return <p>Coding Races — coming soon.</p>;
 }

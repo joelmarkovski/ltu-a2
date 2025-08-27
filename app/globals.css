@@ -33,7 +33,7 @@ html, body { background: var(--background); color: var(--foreground); margin: 0;
 .nav a[aria-current="page"] { font-weight: 600; }
 
 /* simple controls */
-/* ---- Form controls & buttons ---- */
+/* ---- forms control & buttons ---- */
 .input {
   border: 1px solid var(--border);
   border-radius: 6px;
