@@ -271,7 +271,7 @@ ${js}
           Copy to Clipboard
         </button>
 
-        {/* Download Tab.html */}
+        {/* download Tab.html */}
         <button
           className="btn"
           onClick={() => {
