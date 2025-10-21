@@ -1,15 +1,9 @@
-datasource db {
-  provider = "sqlite"
-  url      = env("DATABASE_URL")
-}
-
-generator client {
-  provider = "prisma-client-js"
-}
+datasource db { provider = "sqlite"; url = env("DATABASE_URL") }
+generator client { provider = "prisma-client-js" }
 
 model Save {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
-  type      String   // "generator" | "escape-progress" | ...
-  payload   String   // JSON of what was saved
+  type      String
+  payload   String
 }
