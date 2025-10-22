@@ -204,6 +204,28 @@ ${js}
     setContent(next);
   };
 
+  // ---- NEW: Save generated output to your Prisma/Next API ----
+  async function saveGenerated() {
+    try {
+      const res = await fetch("/api/saves", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "generator",
+          payload: { html: output, tabs, content }
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.text().catch(() => "");
+        throw new Error(err || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      alert(`Saved! id=${data.id}`);
+    } catch (e: any) {
+      alert(`Save failed: ${e?.message ?? e}`);
+    }
+  }
+
   return (
     <section aria-labelledby="gen-title">
       <h1 id="gen-title" style={{ fontSize: 24, fontWeight: 600, margin: "0 0 16px" }}>Tabs HTML+JS Generator</h1>
@@ -285,9 +307,19 @@ ${js}
         >
           Download Tab.html
         </button>
+
+        {/* NEW: save to DB */}
+        <button className="btn" onClick={saveGenerated}>
+          Save to DB
+        </button>
+
+        {/* quick link to the CRUD UI */}
+        <a className="btn" href="/saves" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
+          View Saves →
+        </a>
       </div>
 
-      {/* Live preview of the generated file */}
+      {/* live preview of the generated file */}
       <h2 style={{ fontSize: 20, fontWeight: 600, margin: "24px 0 8px" }}>Live Preview</h2>
       <iframe
         title="Preview"
