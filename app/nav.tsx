@@ -7,8 +7,7 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/escape-room", label: "Escape Room *NEW*" },
-  { href: "/coding-races", label: "Coding Races" },
-  { href: "/court-room", label: "Court Room" },
+  { href: "/builder", label: "Builder *NEW*" },         // ✅ added
   { href: "/qa", label: "Q&A" },
   { href: "/qa/list", label: "Q&A List" },
 ];
@@ -17,15 +16,18 @@ export default function Nav() {
   const pathname = usePathname() || "/";
   const [open, setOpen] = useState(false);
 
-  // remembers last visited page via cookie
+  // remember last visited page via cookie
   useEffect(() => {
     const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toUTCString();
     document.cookie = `last_menu=${encodeURIComponent(pathname)}; expires=${expires}; path=/; SameSite=Lax`;
-    setOpen(false); // close mobile menu when navigating
+    setOpen(false); // close mobile menu on navigation
   }, [pathname]);
 
   const Links = ({ vertical = false }: { vertical?: boolean }) => (
-    <div className="nav" style={{ display: "flex", gap: "12px", flexDirection: vertical ? "column" : "row" }}>
+    <div
+      className="nav"
+      style={{ display: "flex", gap: 12, flexDirection: vertical ? "column" : "row" }}
+    >
       {links.map((l) => {
         const active = pathname === l.href;
         return (
