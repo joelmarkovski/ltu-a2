@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+AWS Lambda Publisher
+• Language: Node.js 22.x
+• Purpose: Publishes Escape Room metadata to an S3 bucket.
+• Environment Variables:
+  - BUCKET = ltu-a2-published-21015477
+  - REGION = ap-southeast-2
+• Output: Writes HTML summary pages to S3 for publishing.
+• Permissions:
+  - Execution role includes AmazonS3FullAccess
+• Test Result: Successfully created qa/test-lambda-[timestamp].html in S3

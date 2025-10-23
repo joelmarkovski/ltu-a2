@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 type Question = { id: number; slug: string; question: string; answer: string };
 type StageDraft = { questionId: number; timerSecs?: number; hint?: string };
 
-// 🔧 Preselected backdrops (replace these paths with your actual files)
+// 🔧 Preselected backdrops (replace with your actual files in /public)
 const PRESET_BACKDROPS = [
   "/escape-bg-1.jpg",
   "/escape-bg-2.jpg",
   "/escape-bg-3.jpg",
 ] as const;
+
+// Lambda Function URL (set in .env.local)
+const PUBLISH_URL = process.env.NEXT_PUBLIC_PUBLISH_URL || "";
 
 export default function BuilderPage() {
   const [loading, setLoading] = useState(true);
@@ -23,14 +26,19 @@ export default function BuilderPage() {
   // 🖼️ Single-choice backdrop
   const [selectedImage, setSelectedImage] = useState<string>(PRESET_BACKDROPS[0]);
 
+  // Publish UI state
+  const [publishing, setPublishing] = useState(false);
+  const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
+
   async function loadQuestions() {
     const res = await fetch("/api/qa");
     const data = await res.json();
     setQuestions(data);
+    setLoading(false);
   }
 
   useEffect(() => {
-    loadQuestions().finally(() => setLoading(false));
+    loadQuestions().catch(() => setLoading(false));
   }, []);
 
   const available = useMemo(() => {
@@ -63,7 +71,7 @@ export default function BuilderPage() {
       const payload = {
         title,
         description,
-        images: [selectedImage], // ✅ persist single selected backdrop
+        images: [selectedImage], // persist chosen backdrop
         stages: stages.map((s, i) => ({
           questionId: s.questionId,
           orderIndex: i,
@@ -94,7 +102,7 @@ export default function BuilderPage() {
       const payload = {
         title,
         description,
-        images: [selectedImage], // ✅ include on update too
+        images: [selectedImage],
         stages: stages.map((s, i) => ({
           questionId: s.questionId,
           orderIndex: i,
@@ -114,6 +122,48 @@ export default function BuilderPage() {
       alert("Update failed: " + (e?.message ?? e));
     } finally {
       setSaving(false);
+    }
+  }
+
+  // 🚀 Publish to Lambda → S3
+  async function publish() {
+    if (!gameId) return alert("Save the game first, then publish.");
+    if (!PUBLISH_URL) return alert("Missing NEXT_PUBLIC_PUBLISH_URL in .env.local");
+    setPublishing(true);
+    setPublishedUrl(null);
+    try {
+      const res = await fetch(PUBLISH_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gameId }),
+      });
+
+      // Handle both {url} and {statusCode, body:'{"url":"..."}'}
+      let url: string | undefined;
+      if (res.headers.get("content-type")?.includes("application/json")) {
+        const data = await res.json();
+        if (typeof data?.url === "string") url = data.url;
+        else if (typeof data?.body === "string") {
+          try {
+            const parsed = JSON.parse(data.body);
+            if (typeof parsed?.url === "string") url = parsed.url;
+          } catch {}
+        }
+      } else {
+        const text = await res.text();
+        try {
+          const parsed = JSON.parse(text);
+          url = parsed?.url;
+        } catch {}
+      }
+
+      if (!res.ok || !url) throw new Error("Publish failed");
+      setPublishedUrl(url);
+      alert(`Published ✔\n${url}`);
+    } catch (e: any) {
+      alert(e?.message || "Publish error");
+    } finally {
+      setPublishing(false);
     }
   }
 
@@ -210,7 +260,7 @@ export default function BuilderPage() {
           <h2>Stages (in order)</h2>
           <ol style={{ border: "1px solid #ddd", borderRadius: 8, padding: 12, minHeight: 200 }}>
             {stages.map((s, i) => {
-              const q = questions.find((q) => q.id === s.questionId);
+              const q = questions.find((qq) => qq.id === s.questionId);
               return (
                 <li
                   key={`${s.questionId}-${i}`}
@@ -264,7 +314,7 @@ export default function BuilderPage() {
         </section>
       </div>
 
-      <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+      <div style={{ display: "flex", gap: 12, marginTop: 16, flexWrap: "wrap" }}>
         {!gameId ? (
           <button
             className="btn"
@@ -282,6 +332,20 @@ export default function BuilderPage() {
             <a className="btn" href={`/play/${gameId}`} data-testid="play-link">
               Play ▶
             </a>
+            <button
+              className="btn"
+              onClick={publish}
+              disabled={publishing || !PUBLISH_URL}
+              data-testid="publish-game"
+              title={PUBLISH_URL ? "" : "Set NEXT_PUBLIC_PUBLISH_URL in .env.local"}
+            >
+              {publishing ? "Publishing…" : "Publish to Cloud"}
+            </button>
+            {publishedUrl && (
+              <a className="btn" href={publishedUrl} target="_blank" rel="noreferrer" data-testid="published-url">
+                Open Published Page
+              </a>
+            )}
           </>
         )}
       </div>
