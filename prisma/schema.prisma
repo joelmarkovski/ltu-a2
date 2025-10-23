@@ -14,19 +14,50 @@ model Save {
   payload   String
 }
 
-model QA {
+model EscapeGame {
+  id          Int             @id @default(autoincrement())
+  title       String
+  description String?
+  images      Json?            // ← store up to 3 backdrop URLs
+  stages      EscapeStage[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+
+model EscapeStage {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
-  slug      String   @unique
-  question  String
-  answer    String
+  updatedAt DateTime @updatedAt
+
+  // ordering within the game
+  orderIndex Int
+
+  // FK -> game
+  gameId Int
+  game   EscapeGame @relation(fields: [gameId], references: [id], onDelete: Cascade)
+
+  // FK -> question
+  questionId Int
+  question   Question @relation(fields: [questionId], references: [id], onDelete: Restrict)
+
+  // optional per-stage config
+  timerSecs Int?
+  hint      String?
+
+  @@unique([gameId, orderIndex]) // each game has a single stage at a position
+  @@index([gameId])
+  @@index([questionId])
 }
 
 model Question {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  slug      String   @unique      // stable identifier (used by builder + lambda)
+  slug      String   @unique
   question  String
   answer    String
+
+  // <-- back relation so P1012 goes away
+  stages EscapeStage[]
 }

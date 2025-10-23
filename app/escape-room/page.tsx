@@ -4,17 +4,17 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 /* tiny inline icons */
 const PlayIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
     <path fill="currentColor" d="M8 5v14l11-7z" />
   </svg>
 );
 const PauseIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
     <path fill="currentColor" d="M6 5h4v14H6zM14 5h4v14h-4z" />
   </svg>
 );
 const ResetIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden>
+  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true">
     <path
       fill="currentColor"
       d="M12 6v3l4-4-4-4v3a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7z"
@@ -25,8 +25,11 @@ const ResetIcon = () => (
 const parseMaybeNumber = (v: string) =>
   (/^-?\d+(\.\d+)?$/.test(v) ? Number(v) : v);
 
+type StageKey = 1 | 2 | 3 | 4;
+type StageState = "locked" | "in-progress" | "done";
+
 export default function EscapeRoom() {
-  /* TIMER */
+  /* --------------------------- TIMER --------------------------- */
   const presets = {
     Easy: { mins: 8, secs: 0 },
     Normal: { mins: 5, secs: 0 },
@@ -41,7 +44,7 @@ export default function EscapeRoom() {
     presets[preset].mins * 60 + presets[preset].secs
   );
 
-  const tickRef = useRef<number | null>(null);
+  const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const totalSeconds = mins * 60 + secs;
   const timeUp = remaining === 0;
   const mm = String(Math.floor(remaining / 60)).padStart(2, "0");
@@ -49,12 +52,12 @@ export default function EscapeRoom() {
 
   useEffect(() => {
     if (!running) return;
-    tickRef.current = window.setInterval(
+    tickRef.current = setInterval(
       () => setRemaining((r) => (r > 0 ? r - 1 : 0)),
       1000
     );
     return () => {
-      if (tickRef.current) window.clearInterval(tickRef.current);
+      if (tickRef.current) clearInterval(tickRef.current);
     };
   }, [running]);
 
@@ -77,20 +80,19 @@ export default function EscapeRoom() {
     setRemaining(presets[p].mins * 60 + presets[p].secs);
   }
 
-  /* STAGES */
-  type StageKey = 1 | 2 | 3 | 4;
-  type StageState = "locked" | "in-progress" | "done";
+  /* --------------------------- STAGES --------------------------- */
   const [stage, setStage] = useState<StageKey>(1);
   const [s1, setS1] = useState<StageState>("in-progress");
   const [s2, setS2] = useState<StageState>("locked");
   const [s3, setS3] = useState<StageState>("locked");
   const [s4, setS4] = useState<StageState>("locked");
+
   const progress = useMemo(
     () => [s1, s2, s3, s4].filter((s) => s === "done").length / 4,
     [s1, s2, s3, s4]
   );
 
-  /* Stage 1 – JSON prettifier (✅ test-ids added) */
+  /* ----------------- Stage 1 – JSON prettifier ----------------- */
   const messy =
     `{"name":"Ada","skills":["js","ts"],"active":true,"scores":{"a":1,"b":2}}`;
   const [input1, setInput1] = useState(messy);
@@ -111,7 +113,7 @@ export default function EscapeRoom() {
     }
   }
 
-  /* Stage 2 – click hotspot */
+  /* -------------------- Stage 2 – click hotspot -------------------- */
   function clickHotspot() {
     setS2("done");
     setS3("in-progress");
@@ -119,7 +121,7 @@ export default function EscapeRoom() {
     alert("🛠️ Debugger opened! Proceed to the next challenge.");
   }
 
-  /* Stage 3 – 0..1000 loop */
+  /* -------------------- Stage 3 – 0..1000 loop --------------------- */
   const [code3, setCode3] = useState(
     `// Write JS that outputs 0..1000\nfor (let i = 0; i <= 1000; i++) { console.log(i); }`
   );
@@ -137,10 +139,12 @@ export default function EscapeRoom() {
       setS3("done");
       setS4("in-progress");
       setStage(4);
-    } else alert("Tip: use a for-loop from 0 to 1000 and output the numbers.");
+    } else {
+      alert("Tip: use a for-loop from 0 to 1000 and output the numbers.");
+    }
   }
 
-  /* Stage 4 – CSV -> JSON */
+  /* -------------------- Stage 4 – CSV -> JSON --------------------- */
   const sampleCSV = `id,name,points
 1,Ada,8
 2,Linus,10
@@ -165,13 +169,13 @@ export default function EscapeRoom() {
     }
   }
 
-  /* NEXT + RESET */
+  /* ------------------------ NEXT + RESET ------------------------ */
   function nextStage() {
     if (stage === 1 && s1 !== "done") return;
     if (stage === 2 && s2 !== "done") return;
     if (stage === 3 && s3 !== "done") return;
     if (stage === 4 && s4 !== "done") return;
-    setStage(Math.min(4, ((stage + 1) as StageKey)));
+    setStage((s) => Math.min(4, s + 1) as StageKey);
   }
 
   function resetAll() {
@@ -192,7 +196,7 @@ export default function EscapeRoom() {
     setJsonOut("");
   }
 
-  /* ============ SAVE / LOAD PROGRESS (with IDs for tests) ============ */
+  /* -------- SAVE / LOAD PROGRESS (with IDs for tests) -------- */
   async function saveProgress() {
     const payload = {
       stage,
@@ -216,16 +220,17 @@ export default function EscapeRoom() {
     const last = list.find((x: any) => x.type === "escape-progress");
     if (!last) return alert("No saved progress found.");
     try {
-      const p = JSON.parse(last.payload);
-      setStage(p.stage ?? 1);
+      const p =
+        typeof last.payload === "string" ? JSON.parse(last.payload) : last.payload;
+      setStage((p.stage as StageKey) ?? 1);
       setMins(p.timer?.mins ?? mins);
       setSecs(p.timer?.secs ?? secs);
       setRunning(false);
       setRemaining(p.timer?.remaining ?? remaining);
-      setS1(p.states?.s1 ?? "in-progress");
-      setS2(p.states?.s2 ?? "locked");
-      setS3(p.states?.s3 ?? "locked");
-      setS4(p.states?.s4 ?? "locked");
+      setS1((p.states?.s1 as StageState) ?? "in-progress");
+      setS2((p.states?.s2 as StageState) ?? "locked");
+      setS3((p.states?.s3 as StageState) ?? "locked");
+      setS4((p.states?.s4 as StageState) ?? "locked");
       setInput1(p.data?.input1 ?? input1);
       setCode3(p.data?.code3 ?? code3);
       setCsvIn(p.data?.csvIn ?? csvIn);
@@ -245,6 +250,7 @@ export default function EscapeRoom() {
     } as const
   )[stage];
 
+  /* ------------------------------ UI ------------------------------ */
   return (
     <section aria-labelledby="escape-title">
       <h1 id="escape-title" className="text-2xl font-semibold mb-3">
