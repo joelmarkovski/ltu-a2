@@ -8,7 +8,10 @@
     "start": "next start -p 3000",
     "migrate:deploy": "prisma migrate deploy",
     "postinstall": "prisma generate",
-    "lint": "eslint"
+    "lint": "eslint",
+    "lh:home": "lighthouse http://localhost:3000/ --output html --output-path docs/lighthouse-home.html --quiet --chrome-flags='--headless=new'",
+    "lh:qa":   "lighthouse http://localhost:3000/qa --output html --output-path docs/lighthouse-qa.html --quiet --chrome-flags='--headless=new'",
+    "lh:all":  "npm run lh:home && npm run lh:qa"
   },
   "dependencies": {
     "@prisma/client": "^6.18.0",
@@ -24,6 +27,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "15.5.0",
+    "lighthouse": "^12.8.2",
     "prisma": "^6.18.0",
     "typescript": "^5"
   }
