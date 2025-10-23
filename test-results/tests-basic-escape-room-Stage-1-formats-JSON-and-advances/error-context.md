@@ -1,0 +1,77 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main"
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e5]: "21015477"
+      - generic [ref=e7]:
+        - link "Home" [ref=e8] [cursor=pointer]:
+          - /url: /
+        - link "About" [ref=e9] [cursor=pointer]:
+          - /url: /about
+        - link "Escape Room" [ref=e10] [cursor=pointer]:
+          - /url: /escape-room
+        - link "Coding Races" [ref=e11] [cursor=pointer]:
+          - /url: /coding-races
+        - link "Court Room" [ref=e12] [cursor=pointer]:
+          - /url: /court-room
+        - link "Q&A" [ref=e13] [cursor=pointer]:
+          - /url: /qa
+        - link "Q&A List" [ref=e14] [cursor=pointer]:
+          - /url: /qa/list
+      - button "Toggle color mode" [ref=e15] [cursor=pointer]: Light Mode
+  - main [ref=e16]:
+    - navigation "Breadcrumb" [ref=e17]:
+      - generic [ref=e18]:
+        - link "Home" [ref=e19] [cursor=pointer]:
+          - /url: /
+        - text: /
+      - link "Escape Room" [ref=e21] [cursor=pointer]:
+        - /url: /escape-room
+    - region "Escape Room" [ref=e22]:
+      - heading "Escape Room" [level=1] [ref=e23]
+      - generic [ref=e25]:
+        - generic [ref=e26]:
+          - text: Difficulty
+          - combobox "Difficulty" [ref=e27]:
+            - option "Easy"
+            - option "Normal" [selected]
+            - option "Hard"
+        - generic [ref=e28]:
+          - text: Minutes
+          - spinbutton "Minutes" [ref=e29]: "5"
+        - generic [ref=e30]:
+          - text: Seconds
+          - spinbutton "Seconds" [ref=e31]: "0"
+        - button "Pause" [ref=e32] [cursor=pointer]:
+          - img [ref=e33]
+          - text: Pause
+        - button "Reset" [ref=e35] [cursor=pointer]:
+          - img [ref=e36]
+          - text: Reset
+        - button "Save Progress" [ref=e38] [cursor=pointer]
+        - button "Load Last Round" [ref=e39] [cursor=pointer]
+        - generic [ref=e40]: ⏱ 04:52
+        - generic "progress" [ref=e41]
+      - generic "Escape room background" [ref=e44]:
+        - generic [ref=e45]:
+          - 'heading "Stage 2: Click the Debugger Hotspot" [level=2] [ref=e46]'
+          - generic [ref=e47]:
+            - paragraph [ref=e48]:
+              - text: Somewhere in this room is a
+              - strong [ref=e49]: debugger
+              - text: . Click the correct spot.
+            - paragraph [ref=e50]: "Hint: try the monitor."
+            - button "Open Debugger" [ref=e51]
+            - button "Next" [disabled] [ref=e53]
+  - contentinfo [ref=e54]:
+    - generic [ref=e55]:
+      - generic [ref=e56]: © 2025 Joel Markovski — 21015477
+      - generic [ref=e57]: 23/10/2025
+  - button "Open Next.js Dev Tools" [ref=e63] [cursor=pointer]:
+    - img [ref=e64]
+  - alert [ref=e67]
+```

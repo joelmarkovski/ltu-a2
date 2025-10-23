@@ -2,15 +2,14 @@
   "name": "ltu-a1",
   "version": "0.1.0",
   "private": true,
-"scripts": {
-  "dev": "next dev -p 3000",
-  "build": "next build",
-  "start": "next start -p 3000",
-  "migrate:deploy": "prisma migrate deploy",
-  "postinstall": "prisma generate",
-  "lint": "eslint"
-}
-,
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "start": "next start -p 3000",
+    "migrate:deploy": "prisma migrate deploy",
+    "postinstall": "prisma generate",
+    "lint": "eslint"
+  },
   "dependencies": {
     "@prisma/client": "^6.17.1",
     "next": "15.5.0",
