@@ -1,9 +1,23 @@
-datasource db { provider = "sqlite"; url = env("DATABASE_URL") }
-generator client { provider = "prisma-client-js" }
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
 
 model Save {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
   type      String
   payload   String
+}
+
+model QA {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  slug      String   @unique
+  question  String
+  answer    String
 }

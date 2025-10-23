@@ -13,9 +13,9 @@ function getCookie(name: string) {
 export default function HomePage() {
   const [tabs, setTabs] = useState<string[]>(["Tab 1", "Tab 2", "Tab 3"]);
   const [content, setContent] = useState<string[]>([
-    "Content for Tab 1 goes here.",
-    "Content for Tab 2 goes here.",
-    "Content for Tab 3 goes here."
+    "Tab 1.",
+    "Tab 2",
+    "Tab 3."
   ]);
   const [active, setActive] = useState<number>(0);
 
@@ -308,7 +308,7 @@ ${js}
           Download Tab.html
         </button>
 
-        {/* NEW: save to DB */}
+        {/* save to DB */}
         <button className="btn" onClick={saveGenerated}>
           Save to DB
         </button>

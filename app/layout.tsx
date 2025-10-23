@@ -4,6 +4,8 @@ import { STUDENT } from "./config";
 import ThemeToggle from "./theme-toggle";
 import Nav from "./nav";
 import Breadcrumbs from "./breadcrumbs";
+import Link from "next/link";
+
 
 export const metadata: Metadata = {
   title: "LTU A1 – Code Generator",

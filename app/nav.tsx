@@ -9,6 +9,8 @@ const links = [
   { href: "/escape-room", label: "Escape Room" },
   { href: "/coding-races", label: "Coding Races" },
   { href: "/court-room", label: "Court Room" },
+  { href: "/qa", label: "Q&A" },
+  { href: "/qa/list", label: "Q&A List" },
 ];
 
 export default function Nav() {
