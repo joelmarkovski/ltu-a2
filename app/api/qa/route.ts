@@ -1,21 +1,25 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// --- GET: list or search ---
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const q = url.searchParams.get("q") ?? "";
 
-    const rows = await prisma.question.findMany({
-      where: q
-        ? {
+    const whereClause =
+      q.trim().length > 0
+        ? ({
             OR: [
-              { question: { contains: q, mode: "insensitive" as const } },
-              { answer: { contains: q, mode: "insensitive" as const } },
-              { slug: { contains: q, mode: "insensitive" as const } },
+              { question: { contains: q, mode: "insensitive" } },
+              { answer: { contains: q, mode: "insensitive" } },
+              { slug: { contains: q, mode: "insensitive" } },
             ],
-          }
-        : undefined,
+          } as any)
+        : undefined;
+
+    const rows = await prisma.question.findMany({
+      where: whereClause,
       orderBy: { createdAt: "desc" },
     });
 
@@ -26,6 +30,7 @@ export async function GET(req: Request) {
   }
 }
 
+// --- POST: create ---
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -50,6 +55,35 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "slug already exists" }, { status: 409 });
     }
     console.error("POST /api/qa error", err);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
+  }
+}
+
+// --- DELETE: remove by ID or slug ---
+export async function DELETE(req: Request) {
+  try {
+    const url = new URL(req.url);
+    const id = url.searchParams.get("id");
+    const slug = url.searchParams.get("slug");
+
+    if (!id && !slug) {
+      return NextResponse.json(
+        { error: "Missing id or slug parameter" },
+        { status: 400 }
+      );
+    }
+
+    const deleted = await prisma.question.deleteMany({
+      where: id ? { id: Number(id) } : { slug: String(slug) },
+    });
+
+    if (deleted.count === 0) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, deleted: deleted.count });
+  } catch (err) {
+    console.error("DELETE /api/qa error", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }

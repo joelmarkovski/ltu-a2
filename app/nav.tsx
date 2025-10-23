@@ -7,9 +7,8 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
   { href: "/escape-room", label: "Escape Room *NEW*" },
-  { href: "/builder", label: "Builder *NEW*" },         // ✅ added
+  { href: "/builder", label: "Builder *NEW*" },         
   { href: "/qa", label: "Q&A" },
-  { href: "/qa/list", label: "Q&A List" },
 ];
 
 export default function Nav() {
