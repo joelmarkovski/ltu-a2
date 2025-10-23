@@ -1,8 +1,8 @@
-// app/api/saves/[id]/route.ts
+// app/api/qa/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// GET /api/saves/:id
+// GET /api/qa/:id
 export async function GET(
   _req: Request,
   { params }: { params: { id: string } }
@@ -12,19 +12,17 @@ export async function GET(
     if (!Number.isInteger(id)) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
-
-    const row = await prisma.save.findUnique({ where: { id } });
+    const row = await prisma.question.findUnique({ where: { id } });
     if (!row) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
     return NextResponse.json(row);
   } catch (err) {
-    console.error("GET /api/saves/[id] error", err);
+    console.error("GET /api/qa/[id] error", err);
     return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
 }
 
-// PATCH /api/saves/:id  (partial update)
-// body can include { type?: string, payload?: string|object }
+// PATCH /api/qa/:id
+// body: { slug?, question?, answer? }
 export async function PATCH(
   req: Request,
   { params }: { params: { id: string } }
@@ -36,33 +34,31 @@ export async function PATCH(
     }
 
     const body = await req.json().catch(() => ({}));
-    const data: { type?: string; payload?: string } = {};
+    const data: { slug?: string; question?: string; answer?: string } = {};
 
-    if (typeof body?.type === "string") data.type = body.type;
-    if (body?.payload !== undefined) {
-      data.payload =
-        typeof body.payload === "string"
-          ? body.payload
-          : JSON.stringify(body.payload);
+    if (typeof body?.slug === "string") data.slug = body.slug;
+    if (typeof body?.question === "string") data.question = body.question;
+    if (typeof body?.answer === "string") data.answer = body.answer;
+
+    if (!("slug" in data) && !("question" in data) && !("answer" in data)) {
+      return NextResponse.json({ error: "Nothing to update" }, { status: 400 });
     }
 
-    if (!("type" in data) && !("payload" in data)) {
+    const row = await prisma.question.update({ where: { id }, data });
+    return NextResponse.json(row);
+  } catch (err: any) {
+    if (err?.code === "P2002") {
       return NextResponse.json(
-        { error: "Nothing to update" },
-        { status: 400 }
+        { error: "slug already exists" },
+        { status: 409 }
       );
     }
-
-    const row = await prisma.save.update({ where: { id }, data });
-    return NextResponse.json(row);
-  } catch (err) {
-    console.error("PATCH /api/saves/[id] error", err);
-    // If record doesn’t exist, Prisma throws P2025
+    console.error("PATCH /api/qa/[id] error", err);
     return NextResponse.json({ error: "Update failed" }, { status: 500 });
   }
 }
 
-// DELETE /api/saves/:id
+// DELETE /api/qa/:id
 export async function DELETE(
   _req: Request,
   { params }: { params: { id: string } }
@@ -72,11 +68,10 @@ export async function DELETE(
     if (!Number.isInteger(id)) {
       return NextResponse.json({ error: "Invalid id" }, { status: 400 });
     }
-
-    await prisma.save.delete({ where: { id } });
+    await prisma.question.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (err) {
-    console.error("DELETE /api/saves/[id] error", err);
+    console.error("DELETE /api/qa/[id] error", err);
     return NextResponse.json({ error: "Delete failed" }, { status: 500 });
   }
 }
