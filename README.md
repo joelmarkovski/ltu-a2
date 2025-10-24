@@ -20,28 +20,96 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
-## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+TU A2 — Escape Room Builder & Publisher
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+A full-stack Next.js + Prisma app where users build an escape/court-room style game, then publish a static, playable HTML to S3 via an AWS Lambda. Includes Dockerized deployment on EC2, CRUD APIs, and a simple “Play” experience with per-stage timers.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+#  Features
 
-## Deploy on Vercel
+Builder UI
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Create a game (title, description)
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Add ordered stages, each linked to a Question (Q/A), with timer + optional hint
 
-AWS Lambda Publisher
-• Language: Node.js 22.x
-• Purpose: Publishes Escape Room metadata to an S3 bucket.
-• Environment Variables:
-  - BUCKET = ltu-a2-published-21015477
-  - REGION = ap-southeast-2
-• Output: Writes HTML summary pages to S3 for publishing.
-• Permissions:
-  - Execution role includes AmazonS3FullAccess
-• Test Result: Successfully created qa/test-lambda-[timestamp].html in S3
+Choose a backdrop (preset images)
+
+Q&A Manager
+
+CRUD for questions (slug, question, answer)
+
+Safe deletes with force=true option (removes referencing stages)
+
+Publisher
+
+Lambda fetches game JSON from your EC2 API and renders static HTML
+
+Uploads to S3 (games/{id}.html), returns public URL
+
+APIs & DB
+
+Prisma + SQLite schema
+
+REST endpoints under /api/qa, /api/games, /api/games/:id
+
+Deployment
+
+Docker image running on EC2
+
+Function URL for Lambda with CORS restricted to your EC2 origin
+
+# Tech Stack//
+
+Frontend/SSR: Next.js (App Router), React
+
+DB/ORM: SQLite + Prisma
+
+Runtime: Node.js 20 (app), Node.js 22 (Lambda)
+
+Cloud: AWS EC2 (app), AWS Lambda (publisher), S3 (static output)
+
+Containerization: Docker
+
+# API Endpoints (REST)
+Q&A
+
+GET /api/qa?q=term → list/search
+
+POST /api/qa → upsert by slug
+
+{ "slug": "water", "question": "Formula?", "answer": "H2O" }
+
+
+DELETE /api/qa?slug=water
+
+?force=true to remove referencing stages first
+
+Also accepts JSON body { "slug": "..." } or { "id": 1 }
+
+Games
+
+POST /api/games → create
+
+{
+  "title": "My Escape Game",
+  "description": "Demo",
+  "backdrop": "/escape-bg-1.jpg",
+  "images": ["/escape-bg-1.jpg"],
+  "stages": [
+    { "questionId": 1, "orderIndex": 0, "timerSecs": 60, "hint": "Think small" }
+  ]
+}
+
+
+GET /api/games → recent list (debugging)
+
+GET /api/games/:id → one game (includes stages.question)
+
+PATCH /api/games/:id → update + replace stages (atomic)
+
+
+# KNOWN BUGS
+* Sometimes DELETE Api doesnt work (not sure why)
+* dockerisation start takes a very long time
+* Backdrop on poublished game sometimes doesnt come through
