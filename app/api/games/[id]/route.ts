@@ -1,74 +1,65 @@
-// app/api/games/[id]/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-type Params = { params: { id: string } };
+export const dynamic = "force-dynamic";
 
-// GET /api/games/:id -> game with ordered stages & question
-export async function GET(_req: Request, { params }: Params) {
+// GET /api/games/:id  — include stages + question text
+export async function GET(_: Request, { params }: { params: { id: string } }) {
   const id = Number(params.id);
-  if (!Number.isInteger(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+  if (!id) return NextResponse.json({ error: "bad id" }, { status: 400 });
 
-  const game = await prisma.escapeGame.findUnique({
+  const g = await prisma.escapeGame.findUnique({
     where: { id },
-    include: { stages: { include: { question: true }, orderBy: { orderIndex: "asc" } } },
+    include: { stages: { orderBy: { orderIndex: "asc" }, include: { question: true } } },
   });
 
-  if (!game) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(game);
+  if (!g) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(g, { status: 200 });
 }
 
-// PATCH /api/games/:id -> replace title/description and full stage list
-export async function PATCH(req: Request, { params }: Params) {
-  const id = Number(params.id);
-  if (!Number.isInteger(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-
-  const body = await req.json();
-  const { title, description, stages } = body ?? {};
-
+// PATCH /api/games/:id  — update game + fully replace stages
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
-    if (Array.isArray(stages)) {
-      await prisma.$transaction([
-        prisma.escapeStage.deleteMany({ where: { gameId: id } }),
-        prisma.escapeGame.update({
-          where: { id },
-          data: {
-            title: title ?? undefined,
-            description: description ?? undefined,
-            stages: {
-              create: stages.map((s: any, i: number) => ({
-                orderIndex: s.orderIndex ?? i,
-                questionId: Number(s.questionId),
-                timerSecs: s.timerSecs ?? null,
-                hint: s.hint ?? null,
-              })),
-            },
-          },
-        }),
-      ]);
-    } else if (title || typeof description === "string") {
-      await prisma.escapeGame.update({
+    const id = Number(params.id);
+    if (!id) return NextResponse.json({ error: "bad id" }, { status: 400 });
+
+    const body = await req.json();
+    const { title, description, images, backdrop, stages } = body || {};
+
+    // replace stages atomically (delete then create)
+    const tx = await prisma.$transaction(async (db) => {
+      const updated = await db.escapeGame.update({
         where: { id },
-        data: { title: title ?? undefined, description: description ?? undefined },
+        data: {
+          title: title ?? undefined,
+          description: description === undefined ? undefined : description,
+          images: images === undefined ? undefined : images,
+          backdrop: backdrop === undefined ? undefined : backdrop,
+        },
       });
-    }
 
-    const result = await prisma.escapeGame.findUnique({
-      where: { id },
-      include: { stages: { include: { question: true }, orderBy: { orderIndex: "asc" } } },
+      if (Array.isArray(stages)) {
+        await db.escapeStage.deleteMany({ where: { gameId: id } });
+        await db.escapeStage.createMany({
+          data: stages.map((s: any) => ({
+            orderIndex: Number(s.orderIndex ?? 0),
+            gameId: id,
+            questionId: Number(s.questionId),
+            timerSecs: s.timerSecs == null ? null : Number(s.timerSecs),
+            hint: s.hint ?? null,
+          })),
+        });
+      }
+
+      return db.escapeGame.findUnique({
+        where: { id },
+        include: { stages: { orderBy: { orderIndex: "asc" }, include: { question: true } } },
+      });
     });
-    return NextResponse.json(result);
+
+    return NextResponse.json(tx, { status: 200 });
   } catch (e) {
-    console.error("PATCH /api/games/[id] error", e);
-    return NextResponse.json({ error: "Update failed" }, { status: 500 });
+    console.error("PATCH /api/games/:id error", e);
+    return NextResponse.json({ error: "Server error" }, { status: 500 });
   }
-}
-
-// DELETE /api/games/:id
-export async function DELETE(_req: Request, { params }: Params) {
-  const id = Number(params.id);
-  if (!Number.isInteger(id)) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
-
-  await prisma.escapeGame.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
 }

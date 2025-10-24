@@ -1,11 +1,10 @@
-
+// app/api/qa/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-// avoid edge caching for this route
 export const dynamic = "force-dynamic";
 
-// --- GET: list or search by ?q= ---
+// -------------------- GET: list/search --------------------
 export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
@@ -34,7 +33,7 @@ export async function GET(req: Request) {
   }
 }
 
-// --- POST: create or update by slug (UPSERT) ---
+// -------------------- POST: upsert by slug --------------------
 export async function POST(req: Request) {
   try {
     const body = await req.json();
@@ -43,10 +42,7 @@ export async function POST(req: Request) {
     const answer = String(body.answer || "");
 
     if (!slug || !question) {
-      return NextResponse.json(
-        { error: "slug and question are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "slug and question are required" }, { status: 400 });
     }
 
     const saved = await prisma.question.upsert({
@@ -62,12 +58,14 @@ export async function POST(req: Request) {
   }
 }
 
-// --- DELETE: remove by id or slug (querystring OR JSON body) ---
+// -------------------- DELETE: by id or slug --------------------
+// Optional: ?force=true to remove referencing stages first
 export async function DELETE(req: Request) {
   try {
     const url = new URL(req.url);
     const qsId = url.searchParams.get("id");
     const qsSlug = url.searchParams.get("slug");
+    const force = url.searchParams.get("force") === "true";
 
     let bodyId: number | null = null;
     let bodySlug: string | null = null;
@@ -75,8 +73,13 @@ export async function DELETE(req: Request) {
       const body = await req.json();
       if (body?.id != null) bodyId = Number(body.id);
       if (body?.slug) bodySlug = String(body.slug);
+      if (typeof body?.force === "boolean") {
+        // body.force overrides query if provided
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const __ = body.force; // just to show we noticed it; we still prefer query param
+      }
     } catch {
-      // no body (fine)
+      // no/invalid body — ignore
     }
 
     const id = qsId ? Number(qsId) : bodyId;
@@ -86,15 +89,54 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ error: "Provide id or slug" }, { status: 400 });
     }
 
-    const where = id ? { id } : { slug: String(slug) };
-    const deleted = await prisma.question.deleteMany({ where });
+    // Resolve the target question first
+    const target = await prisma.question.findUnique({
+      where: id ? { id } : { slug: String(slug) },
+      select: { id: true, slug: true },
+    });
 
-    if (deleted.count === 0) {
+    if (!target) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    return NextResponse.json({ ok: true, deleted: deleted.count }, { status: 200 });
-  } catch (err) {
+
+    // Count referencing stages (FK Restrict in your schema)
+    const inUse = await prisma.escapeStage.count({ where: { questionId: target.id } });
+
+    if (inUse > 0 && !force) {
+      return NextResponse.json(
+        {
+          error: "Question is used by stages",
+          detail: `This question is referenced by ${inUse} stage(s). Pass force=true to delete them too.`,
+          inUse,
+        },
+        { status: 409 }
+      );
+    }
+
+    // Delete within a transaction to keep it tidy
+    const result = await prisma.$transaction(async (tx) => {
+      let deletedStages = 0;
+      if (inUse > 0) {
+        const del = await tx.escapeStage.deleteMany({ where: { questionId: target.id } });
+        deletedStages = del.count;
+      }
+      const delQ = await tx.question.delete({ where: { id: target.id } });
+      return { deletedQuestionId: delQ.id, deletedStages };
+    });
+
+    return NextResponse.json(
+      {
+        ok: true,
+        deletedQuestionId: result.deletedQuestionId,
+        deletedStages: result.deletedStages,
+      },
+      { status: 200 }
+    );
+  } catch (err: any) {
     console.error("DELETE /api/qa error", err);
-    return NextResponse.json({ error: "Server error" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Server error", detail: String(err?.message || err) },
+      { status: 500 }
+    );
   }
 }

@@ -4,15 +4,30 @@ import { useEffect, useMemo, useState } from "react";
 type Question = { id: number; slug: string; question: string; answer: string };
 type StageDraft = { questionId: number; timerSecs?: number; hint?: string };
 
-// 
+// Preset backdrops (served from /public)
 const PRESET_BACKDROPS = [
   "/escape-bg-1.jpg",
   "/escape-bg-2.jpg",
   "/escape-bg-3.jpg",
 ] as const;
 
-// Lambda Function URL (set in .env.local)
+// Lambda Function URL (set in .env.local / build arg)
 const PUBLISH_URL = process.env.NEXT_PUBLIC_PUBLISH_URL || "";
+
+// ---- helpers ---------------------------------------------------------------
+
+// Prefer explicit backdrop; otherwise first image; otherwise default preset
+function normalizeBackdrop(images?: unknown, backdrop?: string) {
+  if (typeof backdrop === "string" && backdrop.length) return backdrop;
+
+  if (Array.isArray(images) && images.length) {
+    const v: any = images[0];
+    if (typeof v === "string") return v;
+    if (v && typeof v.url === "string") return v.url;
+  }
+
+  return PRESET_BACKDROPS[0];
+}
 
 export default function BuilderPage() {
   const [loading, setLoading] = useState(true);
@@ -23,7 +38,7 @@ export default function BuilderPage() {
   const [saving, setSaving] = useState(false);
   const [gameId, setGameId] = useState<number | null>(null);
 
-  // 🖼️ Single-choice backdrop
+  // Single-choice backdrop
   const [selectedImage, setSelectedImage] = useState<string>(PRESET_BACKDROPS[0]);
 
   // Publish UI state
@@ -71,13 +86,16 @@ export default function BuilderPage() {
     setStages((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
   }
 
+  // ---- Save / Update -------------------------------------------------------
+
   async function save() {
     setSaving(true);
     try {
       const payload = {
         title,
         description,
-        images: [selectedImage], // persist chosen backdrop
+        backdrop: selectedImage,          // <— persist simple string
+        images: [selectedImage],          // <— also keep images[0] for compatibility
         stages: stages.map((s, i) => ({
           questionId: s.questionId,
           orderIndex: i,
@@ -85,14 +103,18 @@ export default function BuilderPage() {
           hint: s.hint ?? null,
         })),
       };
+
       const res = await fetch("/api/games", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Create failed");
+      if (!res.ok) throw new Error(await res.text());
       const created = await res.json();
+
       setGameId(created.id);
+      // keep the UI synced with server truth
+      setSelectedImage(normalizeBackdrop(created?.images, created?.backdrop));
       alert("Game saved!");
     } catch (e: any) {
       alert("Save failed: " + (e?.message ?? e));
@@ -108,6 +130,7 @@ export default function BuilderPage() {
       const payload = {
         title,
         description,
+        backdrop: selectedImage,
         images: [selectedImage],
         stages: stages.map((s, i) => ({
           questionId: s.questionId,
@@ -116,13 +139,16 @@ export default function BuilderPage() {
           hint: s.hint ?? null,
         })),
       };
+
       const res = await fetch(`/api/games/${gameId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-      if (!res.ok) throw new Error("Update failed");
-      await res.json();
+      if (!res.ok) throw new Error(await res.text());
+      const updated = await res.json();
+
+      setSelectedImage(normalizeBackdrop(updated?.images, updated?.backdrop));
       alert("Game updated!");
     } catch (e: any) {
       alert("Update failed: " + (e?.message ?? e));
@@ -131,7 +157,8 @@ export default function BuilderPage() {
     }
   }
 
-  // 🚀 Publish to Lambda → S3 (robust against non-JSON error responses)
+  // ---- Publish -------------------------------------------------------------
+
   async function publish() {
     if (!gameId) return alert("Save the game first, then publish.");
     if (!PUBLISH_URL) return alert("Missing NEXT_PUBLIC_PUBLISH_URL in .env.local");
@@ -147,40 +174,22 @@ export default function BuilderPage() {
       });
 
       const ct = res.headers.get("content-type") || "";
-      const raw = await res.text(); // read once
+      const raw = await res.text();
       let data: any = null;
 
       if (ct.includes("application/json")) {
-        try {
-          data = JSON.parse(raw);
-        } catch {
-          // fall through with data = null
-        }
+        try { data = JSON.parse(raw); } catch {}
       }
 
-      // Support both { url } and { statusCode, body:'{"url":"..."}' }
       let url: string | undefined;
-      if (data?.url) {
-        url = String(data.url);
-      } else if (data?.body && typeof data.body === "string") {
-        try {
-          const inner = JSON.parse(data.body);
-          if (inner?.url) url = String(inner.url);
-        } catch {
-          // ignore
-        }
+      if (data?.url) url = String(data.url);
+      else if (data?.body && typeof data.body === "string") {
+        try { const inner = JSON.parse(data.body); if (inner?.url) url = String(inner.url); } catch {}
       } else {
-        // maybe raw body itself is JSON
-        try {
-          const maybe = JSON.parse(raw);
-          if (maybe?.url) url = String(maybe.url);
-        } catch {
-          // ignore — raw is plain text
-        }
+        try { const maybe = JSON.parse(raw); if (maybe?.url) url = String(maybe.url); } catch {}
       }
 
       if (!res.ok || !url) {
-        // show whatever Lambda sent so you can diagnose quickly
         const msg = raw?.trim() ? raw : "Publish failed";
         throw new Error(`Publish failed (${res.status}).\n${msg}`);
       }
@@ -211,7 +220,7 @@ export default function BuilderPage() {
         </label>
       </section>
 
-      {/*  Backdrop selector (single-choice, 3 presets) */}
+      {/* Backdrop selector */}
       <section style={{ margin: "8px 0 24px" }}>
         <h2>Backdrop</h2>
         <p style={{ fontSize: 13, opacity: 0.75, marginBottom: 8 }}>
@@ -290,21 +299,14 @@ export default function BuilderPage() {
                   style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 8, marginBottom: 12 }}
                 >
                   <div style={{ display: "flex", gap: 4 }}>
-                    <button className="btn" onClick={() => moveStage(i, -1)} aria-label="move up">
-                      ↑
-                    </button>
-                    <button className="btn" onClick={() => moveStage(i, +1)} aria-label="move down">
-                      ↓
-                    </button>
+                    <button className="btn" onClick={() => moveStage(i, -1)} aria-label="move up">↑</button>
+                    <button className="btn" onClick={() => moveStage(i, +1)} aria-label="move down">↓</button>
                   </div>
                   <div>
-                    <div>
-                      <strong>{q?.slug}</strong> — {q?.question}
-                    </div>
+                    <div><strong>{q?.slug}</strong> — {q?.question}</div>
                     <div style={{ display: "flex", gap: 12, marginTop: 8 }}>
                       <label>
-                        <small>Timer (secs)</small>
-                        <br />
+                        <small>Timer (secs)</small><br />
                         <input
                           type="number"
                           className="input"
@@ -314,8 +316,7 @@ export default function BuilderPage() {
                         />
                       </label>
                       <label style={{ flex: 1 }}>
-                        <small>Hint</small>
-                        <br />
+                        <small>Hint</small><br />
                         <input
                           className="input"
                           value={s.hint ?? ""}
@@ -325,9 +326,7 @@ export default function BuilderPage() {
                     </div>
                   </div>
                   <div>
-                    <button className="btn" onClick={() => removeStage(i)} aria-label="remove stage">
-                      ✕
-                    </button>
+                    <button className="btn" onClick={() => removeStage(i)} aria-label="remove stage">✕</button>
                   </div>
                 </li>
               );
@@ -352,9 +351,7 @@ export default function BuilderPage() {
             <button className="btn" disabled={saving} onClick={update} data-testid="update-game">
               Update
             </button>
-            <a className="btn" href={`/play/${gameId}`} data-testid="play-link">
-              Play ▶
-            </a>
+            <a className="btn" href={`/play/${gameId}`} data-testid="play-link">Play ▶</a>
             <button
               className="btn"
               onClick={publish}
