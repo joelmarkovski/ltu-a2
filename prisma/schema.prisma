@@ -14,15 +14,6 @@ model Save {
   payload   String
 }
 
-model EscapeGame {
-  id          Int             @id @default(autoincrement())
-  title       String
-  description String?
-  images      Json?            // ← store up to 3 backdrop URLs
-  stages      EscapeStage[]
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
-}
 
 
 model EscapeStage {
@@ -50,6 +41,17 @@ model EscapeStage {
   @@index([questionId])
 }
 
+model EscapeGame {
+  id          Int             @id @default(autoincrement())
+  title       String
+  description String?
+  images      Json?           // optional array or single JSON value
+  backdrop    String?         // <-- nEW: straightforward string path like "/escape-bg-1.jpg"
+  stages      EscapeStage[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
 model Question {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
@@ -58,6 +60,6 @@ model Question {
   question  String
   answer    String
 
-  // <-- back relation so P1012 goes away
-  stages EscapeStage[]
+  stages EscapeStage[]  // back relation (you already added this—keep it)
 }
+
