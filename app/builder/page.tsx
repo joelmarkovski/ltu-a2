@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 type Question = { id: number; slug: string; question: string; answer: string };
 type StageDraft = { questionId: number; timerSecs?: number; hint?: string };
 
-// 🔧 Preselected backdrops (replace with your actual files in /public)
+// 
 const PRESET_BACKDROPS = [
   "/escape-bg-1.jpg",
   "/escape-bg-2.jpg",
@@ -31,14 +31,20 @@ export default function BuilderPage() {
   const [publishedUrl, setPublishedUrl] = useState<string | null>(null);
 
   async function loadQuestions() {
-    const res = await fetch("/api/qa");
-    const data = await res.json();
-    setQuestions(data);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/qa");
+      if (!res.ok) throw new Error(`Failed to load questions (${res.status})`);
+      const data = await res.json();
+      setQuestions(data);
+    } catch (err: any) {
+      alert(err?.message || "Failed to load questions");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
-    loadQuestions().catch(() => setLoading(false));
+    loadQuestions();
   }, []);
 
   const available = useMemo(() => {
@@ -125,12 +131,14 @@ export default function BuilderPage() {
     }
   }
 
-  // 🚀 Publish to Lambda → S3
+  // 🚀 Publish to Lambda → S3 (robust against non-JSON error responses)
   async function publish() {
     if (!gameId) return alert("Save the game first, then publish.");
     if (!PUBLISH_URL) return alert("Missing NEXT_PUBLIC_PUBLISH_URL in .env.local");
+
     setPublishing(true);
     setPublishedUrl(null);
+
     try {
       const res = await fetch(PUBLISH_URL, {
         method: "POST",
@@ -138,26 +146,45 @@ export default function BuilderPage() {
         body: JSON.stringify({ gameId }),
       });
 
-      // Handle both {url} and {statusCode, body:'{"url":"..."}'}
-      let url: string | undefined;
-      if (res.headers.get("content-type")?.includes("application/json")) {
-        const data = await res.json();
-        if (typeof data?.url === "string") url = data.url;
-        else if (typeof data?.body === "string") {
-          try {
-            const parsed = JSON.parse(data.body);
-            if (typeof parsed?.url === "string") url = parsed.url;
-          } catch {}
-        }
-      } else {
-        const text = await res.text();
+      const ct = res.headers.get("content-type") || "";
+      const raw = await res.text(); // read once
+      let data: any = null;
+
+      if (ct.includes("application/json")) {
         try {
-          const parsed = JSON.parse(text);
-          url = parsed?.url;
-        } catch {}
+          data = JSON.parse(raw);
+        } catch {
+          // fall through with data = null
+        }
       }
 
-      if (!res.ok || !url) throw new Error("Publish failed");
+      // Support both { url } and { statusCode, body:'{"url":"..."}' }
+      let url: string | undefined;
+      if (data?.url) {
+        url = String(data.url);
+      } else if (data?.body && typeof data.body === "string") {
+        try {
+          const inner = JSON.parse(data.body);
+          if (inner?.url) url = String(inner.url);
+        } catch {
+          // ignore
+        }
+      } else {
+        // maybe raw body itself is JSON
+        try {
+          const maybe = JSON.parse(raw);
+          if (maybe?.url) url = String(maybe.url);
+        } catch {
+          // ignore — raw is plain text
+        }
+      }
+
+      if (!res.ok || !url) {
+        // show whatever Lambda sent so you can diagnose quickly
+        const msg = raw?.trim() ? raw : "Publish failed";
+        throw new Error(`Publish failed (${res.status}).\n${msg}`);
+      }
+
       setPublishedUrl(url);
       alert(`Published ✔\n${url}`);
     } catch (e: any) {
@@ -184,17 +211,13 @@ export default function BuilderPage() {
         </label>
       </section>
 
-      {/* 🖼️ Backdrop selector (single-choice, 3 presets) */}
+      {/*  Backdrop selector (single-choice, 3 presets) */}
       <section style={{ margin: "8px 0 24px" }}>
         <h2>Backdrop</h2>
         <p style={{ fontSize: 13, opacity: 0.75, marginBottom: 8 }}>
           Choose one of the preset backgrounds for your escape room.
         </p>
-        <div
-          role="listbox"
-          aria-label="Choose backdrop"
-          style={{ display: "flex", gap: 12, flexWrap: "wrap" }}
-        >
+        <div role="listbox" aria-label="Choose backdrop" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
           {PRESET_BACKDROPS.map((url) => {
             const active = selectedImage === url;
             return (
